@@ -1,0 +1,154 @@
+#!/bin/bash
+
+# Claude Code Docker runner
+
+set -e
+
+readonly RED='\033[0;31m'
+readonly GREEN='\033[0;32m'
+readonly YELLOW='\033[1;33m'
+readonly CYAN='\033[0;36m'
+readonly NC='\033[0m'
+
+IMAGE_NAME="clauded:latest"
+CONTAINER_NAME="clauded-container"
+CLAUDE_VOLUME="clauded-volume"
+SANDBOX_MODE=false
+
+FILTERED_ARGS=()
+for arg in "$@"; do
+    if [ "$arg" = "--sandbox" ] || [ "$arg" = "-s" ]; then
+        SANDBOX_MODE=true
+    else
+        FILTERED_ARGS+=("$arg")
+    fi
+done
+
+if ! docker image inspect "${IMAGE_NAME}" > /dev/null 2>&1; then
+    echo -e "${RED}Error: Docker image '${IMAGE_NAME}' not found${NC}"
+    echo -e "${YELLOW}Please run the installation script first.${NC}"
+    exit 1
+fi
+
+WORK_DIR="$(pwd)"
+
+if docker ps --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
+    echo -e "${RED}⚠️  WARNING: Another instance of '${CONTAINER_NAME}' is running${NC}"
+    echo ""
+    echo -e "Choose an option:"
+    echo -e "  ${CYAN}1${NC}) Attach to running container"
+    echo -e "     ${YELLOW}(uses the existing container's configuration)${NC}"
+    echo -e "  ${CYAN}2${NC}) Stop previous instance and start fresh"
+    echo -e "     ${YELLOW}(uses new configuration)${NC}"
+    echo -e "  ${CYAN}3${NC}) Exit"
+    echo ""
+
+    while true; do
+        read -p "Enter your choice (1/2/3) [default: 1]: " answer
+        # Default to 1 if answer is empty
+        answer="${answer:-1}"
+
+        # Validate input is 1, 2, or 3
+        if [[ ! "$answer" =~ ^[123]$ ]]; then
+            echo "Please enter 1, 2, or 3."
+            continue
+        fi
+
+        case "$answer" in
+            1 )
+                echo -e "${GREEN}Reusing existing instance...${NC}"
+                docker exec -it -u claude "${CONTAINER_NAME}" claude --dangerously-skip-permissions "${FILTERED_ARGS[@]}"
+                echo -e "${GREEN}Detaching, container is still running.${NC}"
+                exit 0
+                ;;
+            2 )
+                echo -e "${YELLOW}Stopping previous instance...${NC}"
+                docker exec "${CONTAINER_NAME}" sh -c "
+                    for tty in /dev/pts/*; do
+                        [ -w \"\$tty\" ] && echo -e '\n${RED}⚠️  WARNING: Another container instance is starting, bye.${NC}\n' > \"\$tty\" 2>/dev/null || true
+                    done
+                " 2>/dev/null || true
+                docker rm -f "${CONTAINER_NAME}" >/dev/null 2>&1 || true
+                break
+                ;;
+            3 )
+                exit 0
+                ;;
+            * )
+                echo "Please enter 1, 2, or 3."
+                ;;
+        esac
+    done
+fi
+
+if ! docker volume inspect "${CLAUDE_VOLUME}" > /dev/null 2>&1; then
+    echo -e "${YELLOW}Creating persistent volume for Claude Code config...${NC}"
+    docker volume create "${CLAUDE_VOLUME}"
+fi
+
+echo -e "${GREEN}🐳 Starting Claude Code...${NC}"
+if [ "$SANDBOX_MODE" = true ]; then
+    echo -e "⚙️ Mode: sandboxed (${CYAN}no host directory mounted${NC})"
+else
+    echo -e "⚙️ Mode: ${YELLOW}mounted${NC} (${CYAN}${WORK_DIR}${NC})"
+fi
+
+dirs=(
+    .env
+    .ssh
+    config/credentials
+    config/secrets
+    credentials
+    secrets
+    node_modules
+    tmp
+)
+
+DOCKER_ARGS=(
+    --rm -it
+    --name "${CONTAINER_NAME}"
+    --security-opt no-new-privileges:true
+    --network bridge
+)
+
+# Add tmpfs mounts for sensitive directories (non-sandbox mode only)
+MASKED_DIRS=""
+if [ "$SANDBOX_MODE" != true ]; then
+    for dir in "${dirs[@]}"; do
+        if [ -d "$dir" ]; then
+            DOCKER_ARGS+=(--tmpfs "/workspace/${dir}")
+            MASKED_DIRS+="$dir, "
+        fi
+    done
+    MASKED_DIRS="${MASKED_DIRS%, }"
+    [ -n "$MASKED_DIRS" ] && echo "🔒 Masking with tmpfs: $MASKED_DIRS"
+fi
+
+# Environment variables
+DOCKER_ARGS+=(
+    -e "HOST_UID=$(id -u)"
+    -e "HOST_GID=$(id -g)"
+    -e "TERM=${TERM}"
+    -e "COLORTERM=${COLORTERM}"
+)
+
+# Volumes
+if [ "$SANDBOX_MODE" = true ]; then
+    DOCKER_ARGS+=(
+        -v "${CLAUDE_VOLUME}:/home/claude:rw"
+        -w /workspace
+    )
+else
+    DOCKER_ARGS+=(
+        -v "${WORK_DIR}:/workspace:rw"
+        -v "${CLAUDE_VOLUME}:/home/claude:rw"
+        -w /workspace
+    )
+fi
+
+docker run "${DOCKER_ARGS[@]}" \
+    "${IMAGE_NAME}" \
+    claude --dangerously-skip-permissions \
+    "${FILTERED_ARGS[@]}"
+
+echo -e "${GREEN}Container stopped.${NC}"
