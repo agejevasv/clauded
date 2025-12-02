@@ -1,11 +1,9 @@
 # clauded (Claude Code Docker Container)
 
-A Docker-based wrapper for running [Claude Code](https://claude.com/product/claude-code) in an isolated, containerized environment. This provides a secure and reproducible way to run Claude AI's coding assistant without modifying your host system.
+A Docker-based wrapper for running [Claude Code](https://claude.com/product/claude-code) in an isolated, containerized environment.
 
 ## Table of Contents
 
-- [Features](#features)
-- [Prerequisites](#prerequisites)
 - [Installation](#installation)
 - [Usage](#usage)
 - [How It Works](#how-it-works)
@@ -17,25 +15,13 @@ A Docker-based wrapper for running [Claude Code](https://claude.com/product/clau
 - [Native vs Containerized Performance](#native-vs-containerized-performance)
 - [License](#license)
 
-## Features
+## Installation
 
-- **Isolated Environment**: Runs Claude Code in a Docker container with minimal Alpine Linux base
-- **Sandbox Mode**: Option to run without mounting host directories for maximum isolation
-- **Security Hardening**:
-  - Automatic tmpfs masking of sensitive directories (`.env`, `.ssh`, credentials, etc.)
-  - No new privileges flag for enhanced container security
-  - User permission mapping between host and container
-- **Persistent Configuration**: Claude Code settings preserved in a Docker volume
-- **Instance Management**: Handles multiple instances with attach/replace options
-- **Reasonably fast**: [the containerized version is slim and reasonably fast](#native-vs-containerized-performance)
-
-## Prerequisites
+### Prerequisites
 
 - Docker installed and running
 - `sudo` access for installation (copies script to `/usr/local/bin`)
 - Bash shell
-
-## Installation
 
 Clone the repository and run the installation script:
 
@@ -98,7 +84,6 @@ clauded -s --help
 1. **Container Creation**: Creates a persistent Docker volume for Claude Code configuration
 2. **Directory Mounting**: Mounts your current directory (unless in sandbox mode)
 3. **Security Masking**: Automatically creates tmpfs overlays for sensitive directories to prevent access
-4. **Permission Mapping**: Maps your host UID/GID to the container user
 
 ### Directories Masked (Non-Sandbox Mode)
 
