@@ -30,7 +30,7 @@ if [ ! -f /home/claude/.local/bin/claude ]; then
     fi
 
     # Execute with cleanup
-    su-exec "${USER_ID}:${GROUP_ID}" bash "${INSTALL_SCRIPT}"
+    su-exec "${USER_ID}:${GROUP_ID}" bash "${INSTALL_SCRIPT}" stable
     rm -f "${INSTALL_SCRIPT}"
 fi
 

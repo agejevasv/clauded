@@ -23,6 +23,7 @@ ENV USE_BUILTIN_RIPGREP=0
 RUN addgroup -g 1000 claude && adduser -D -u 1000 -G claude claude
 
 COPY --chmod=755 entrypoint.sh /usr/local/bin/entrypoint.sh
+COPY settings.json /home/claude/.claude/settings.json
 
 WORKDIR /workspace
 
