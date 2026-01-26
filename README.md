@@ -115,6 +115,31 @@ To reset configuration, remove the volume:
 docker volume rm clauded-volume
 ```
 
+### GitHub Token
+
+To enable `gh` CLI access and HTTPS-based git operations inside the container, provide a `GITHUB_TOKEN`. The token is used to authenticate the `gh` CLI and to automatically rewrite SSH git URLs (`git@github.com:`) to HTTPS, so cloning, pushing, and PR workflows work without SSH keys.
+
+You can provide the token in two ways:
+
+**Option 1 — Environment variable** (recommended for CI or ephemeral use):
+
+```bash
+export GITHUB_TOKEN="ghp_..."
+clauded
+```
+
+**Option 2 — `.env` file** (recommended for personal use):
+
+Create a `.env` file in the directory where you run `clauded`:
+
+```bash
+GITHUB_TOKEN="ghp_..."
+```
+
+The `.env` file is automatically sourced before the container starts. It is also masked inside the container via a tmpfs overlay, so Claude Code cannot read the file's contents.
+
+> **Tip:** You can create a fine-grained personal access token at https://github.com/settings/tokens with only the repository permissions you need.
+
 ## Uninstallation
 
 Remove the installed command:

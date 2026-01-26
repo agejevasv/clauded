@@ -132,6 +132,11 @@ DOCKER_ARGS+=(
     -e "COLORTERM=${COLORTERM}"
 )
 
+# Pass GITHUB_TOKEN for gh CLI authentication
+if [ -n "${GITHUB_TOKEN:-}" ]; then
+    DOCKER_ARGS+=(-e "GITHUB_TOKEN=${GITHUB_TOKEN}")
+fi
+
 # Volumes
 if [ "$SANDBOX_MODE" = true ]; then
     DOCKER_ARGS+=(

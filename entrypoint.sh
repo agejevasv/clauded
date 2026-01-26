@@ -12,12 +12,18 @@ fi
 
 chown -R "$USER_ID:$GROUP_ID" /home/claude
 
+# When GITHUB_TOKEN is available, configure git to use HTTPS+token instead of SSH
+if [ -n "${GITHUB_TOKEN:-}" ]; then
+    gosu "${USER_ID}:${GROUP_ID}" git config --global url."https://github.com/".insteadOf "git@github.com:"
+    gosu "${USER_ID}:${GROUP_ID}" git config --global credential.helper '!f() { echo "password=${GITHUB_TOKEN}"; }; f'
+fi
+
 if [ ! -f /home/claude/.local/bin/claude ]; then
     echo "⚡ curl -fsSL https://claude.ai/install.sh | bash"
     INSTALL_SCRIPT="/tmp/claude-install-$$.sh"
 
     # Download with verification
-    if ! su-exec "${USER_ID}:${GROUP_ID}" curl -fsSL -o "${INSTALL_SCRIPT}" https://claude.ai/install.sh; then
+    if ! gosu "${USER_ID}:${GROUP_ID}" curl -fsSL -o "${INSTALL_SCRIPT}" https://claude.ai/install.sh; then
         echo "Error: Failed to download Claude CLI installer" >&2
         exit 1
     fi
@@ -30,8 +36,8 @@ if [ ! -f /home/claude/.local/bin/claude ]; then
     fi
 
     # Execute with cleanup
-    su-exec "${USER_ID}:${GROUP_ID}" bash "${INSTALL_SCRIPT}" stable
+    gosu "${USER_ID}:${GROUP_ID}" bash "${INSTALL_SCRIPT}" stable
     rm -f "${INSTALL_SCRIPT}"
 fi
 
-exec su-exec "${USER_ID}:${GROUP_ID}" "$@"
+exec gosu "${USER_ID}:${GROUP_ID}" "$@"
