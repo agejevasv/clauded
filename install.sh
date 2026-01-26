@@ -37,10 +37,13 @@ else
   echo -e "${YELLOW}Building Docker image...${NC}"
 fi
 
+[ -f "${HOME}/.gitconfig" ] && cp "${HOME}/.gitconfig" "${SCRIPT_DIR}/.gitconfig"
 if ! docker build ${BUILD_ARGS} "${SCRIPT_DIR}"; then
+    rm -f "${SCRIPT_DIR}/.gitconfig"
     echo -e "${RED}Error: Docker build failed${NC}" >&2
     exit 1
 fi
+rm -f "${SCRIPT_DIR}/.gitconfig"
 echo -e "${GREEN}Docker image built successfully!${NC}"
 
 echo -e "${YELLOW}Copying clauded to ${INSTALL_PATH}${NC}"

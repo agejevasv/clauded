@@ -17,7 +17,7 @@ if [ ! -f /home/claude/.local/bin/claude ]; then
     INSTALL_SCRIPT="/tmp/claude-install-$$.sh"
 
     # Download with verification
-    if ! su-exec "${USER_ID}:${GROUP_ID}" curl -fsSL -o "${INSTALL_SCRIPT}" https://claude.ai/install.sh; then
+    if ! gosu "${USER_ID}:${GROUP_ID}" curl -fsSL -o "${INSTALL_SCRIPT}" https://claude.ai/install.sh; then
         echo "Error: Failed to download Claude CLI installer" >&2
         exit 1
     fi
@@ -30,8 +30,8 @@ if [ ! -f /home/claude/.local/bin/claude ]; then
     fi
 
     # Execute with cleanup
-    su-exec "${USER_ID}:${GROUP_ID}" bash "${INSTALL_SCRIPT}" stable
+    gosu "${USER_ID}:${GROUP_ID}" bash "${INSTALL_SCRIPT}" stable
     rm -f "${INSTALL_SCRIPT}"
 fi
 
-exec su-exec "${USER_ID}:${GROUP_ID}" "$@"
+exec gosu "${USER_ID}:${GROUP_ID}" "$@"
