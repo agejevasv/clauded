@@ -196,24 +196,6 @@ time clauded --version
 Container stopped.
 clauded --version  0.04s user 0.06s system 9% cpu 1.016 total
 ```
-Interestingly, containerized version seems to use less memory:
-
-### Native top
-```bash
-top -p $(pgrep -d',' claude)
-
-    PID USER      PR  NI    VIRT    RES    SHR S  %CPU  %MEM     TIME+ COMMAND
- 108147   me      20   0   71.0g 436.0m  49.2m S   1.0   1.4   0:05.05 claude
-```
-### Container top
-```bash
-top -p $(pgrep -d',' 'docker|clauded')
-
-    PID USER      PR  NI    VIRT    RES    SHR S  %CPU  %MEM     TIME+ COMMAND
-    964 root      20   0 2243.3m  85.7m  50.1m S   0.0   0.3   0:05.60 dockerd
- 109131   me      20   0   10.0m   7.3m   6.9m S   0.0   0.0   0:00.00 clauded
- 109169   me      20   0 1700.4m  30.4m  17.4m S   0.0   0.1   0:00.05 docker
-```
 ## License
 
 MIT License - See LICENSE file for details
