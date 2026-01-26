@@ -12,6 +12,12 @@ fi
 
 chown -R "$USER_ID:$GROUP_ID" /home/claude
 
+# When GITHUB_TOKEN is available, configure git to use HTTPS+token instead of SSH
+if [ -n "${GITHUB_TOKEN:-}" ]; then
+    gosu "${USER_ID}:${GROUP_ID}" git config --global url."https://github.com/".insteadOf "git@github.com:"
+    gosu "${USER_ID}:${GROUP_ID}" git config --global credential.helper '!f() { echo "password=${GITHUB_TOKEN}"; }; f'
+fi
+
 if [ ! -f /home/claude/.local/bin/claude ]; then
     echo "⚡ curl -fsSL https://claude.ai/install.sh | bash"
     INSTALL_SCRIPT="/tmp/claude-install-$$.sh"
