@@ -32,6 +32,11 @@ fi
 
 WORK_DIR="$(pwd)"
 
+# Source .env for environment variables (e.g. GITHUB_TOKEN)
+if [ -f .env ]; then
+    source .env
+fi
+
 if docker ps --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
     echo -e "${RED}⚠️  WARNING: Another instance of '${CONTAINER_NAME}' is running${NC}"
     echo ""
