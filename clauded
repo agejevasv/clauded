@@ -105,8 +105,6 @@ dirs=(
     config/secrets
     credentials
     secrets
-    node_modules
-    tmp
 )
 
 DOCKER_ARGS=(
