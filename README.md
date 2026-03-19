@@ -12,7 +12,6 @@ A Docker-based wrapper for running [Claude Code](https://claude.com/product/clau
 - [Uninstallation](#uninstallation)
 - [Security Considerations](#security-considerations)
 - [Troubleshooting](#troubleshooting)
-- [Native vs Containerized Performance](#native-vs-containerized-performance)
 - [License](#license)
 
 ## Installation
@@ -32,9 +31,9 @@ cd clauded
 ```
 
 The installation script will:
-1. Build the Docker image (`clauded:latest`)
+1. Build the Docker image (`clauded:latest`) based on [`devcontainers/universal:2`](https://github.com/devcontainers/images/tree/main/src/universal) which includes Go, Node, Python, Java, .NET, Ruby, PHP, Rust, and common dev tools
 2. Copy the `clauded` command to `/usr/local/bin`
-3. Trigger native Claude Code client installation in the container
+3. Install Claude Code CLI into the image
 
 To rebuild the image without cache:
 
@@ -94,8 +93,6 @@ When running with a mounted directory, these subdirectories are automatically ma
 - `config/secrets`
 - `credentials`
 - `secrets`
-- `node_modules`
-- `tmp`
 
 ## Instance Management
 
@@ -107,7 +104,7 @@ If you try to start `clauded` while another instance is running, you'll see opti
 
 ## Configuration
 
-Claude Code configuration is stored in a persistent Docker volume named `clauded-volume`. This preserves your settings, authentication, and preferences across container restarts.
+Claude Code configuration is stored in a persistent Docker volume named `clauded-volume`, mounted at `/home/codespace`. This preserves your settings, authentication, and preferences across container restarts.
 
 To reset configuration, remove the volume:
 
@@ -175,27 +172,6 @@ docker volume rm clauded-volume
 
 **Installation fails**: Try `./install.sh --force` to rebuild without cache
 
-## Native vs Containerized Performance
-
-Based on my smoke tests, the containerized version has minimal time overhead compared to running Claude Code natively, e.g.:
-
-### Native time
-```bash
-time claude --version
-
-2.0.55 (Claude Code)
-claude --version  0.54s user 0.29s system 157% cpu 0.527 total
-```
-### Container time
-```bash
-time clauded --version
-
-🐳 Starting Claude Code...
-⚙️ Mode: mounted (/home/me/clauded)
-2.0.55 (Claude Code)
-Container stopped.
-clauded --version  0.04s user 0.06s system 9% cpu 1.016 total
-```
 ## License
 
 MIT License - See LICENSE file for details

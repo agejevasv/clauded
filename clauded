@@ -62,7 +62,7 @@ if docker ps --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
         case "$answer" in
             1 )
                 echo -e "${GREEN}Reusing existing instance...${NC}"
-                docker exec -it -u claude "${CONTAINER_NAME}" claude --dangerously-skip-permissions "${FILTERED_ARGS[@]}"
+                docker exec -it -u codespace "${CONTAINER_NAME}" claude --dangerously-skip-permissions "${FILTERED_ARGS[@]}"
                 echo -e "${GREEN}Detaching, container is still running.${NC}"
                 exit 0
                 ;;
@@ -143,13 +143,13 @@ fi
 # Volumes
 if [ "$SANDBOX_MODE" = true ]; then
     DOCKER_ARGS+=(
-        -v "${CLAUDE_VOLUME}:/home/claude:rw"
+        -v "${CLAUDE_VOLUME}:/home/codespace:rw"
         -w /workspace
     )
 else
     DOCKER_ARGS+=(
         -v "${WORK_DIR}:/workspace:rw"
-        -v "${CLAUDE_VOLUME}:/home/claude:rw"
+        -v "${CLAUDE_VOLUME}:/home/codespace:rw"
         -w /workspace
     )
 fi
