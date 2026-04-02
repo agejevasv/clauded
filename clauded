@@ -98,8 +98,12 @@ else
     echo -e "⚙️ Mode: ${YELLOW}mounted${NC} (${CYAN}${WORK_DIR}${NC})"
 fi
 
-dirs=(
+files=(
     .env
+    .envrc
+)
+
+dirs=(
     .ssh
     config/credentials
     config/secrets
@@ -114,8 +118,9 @@ DOCKER_ARGS=(
     --network bridge
 )
 
-# Add tmpfs mounts for sensitive directories (non-sandbox mode only)
+# Add tmpfs mounts for sensitive directories and exclude sensitive files (non-sandbox mode only)
 MASKED_DIRS=""
+EXCLUDED_FILES=""
 if [ "$SANDBOX_MODE" != true ]; then
     for dir in "${dirs[@]}"; do
         if [ -d "$dir" ]; then
@@ -123,9 +128,18 @@ if [ "$SANDBOX_MODE" != true ]; then
             MASKED_DIRS+="$dir, "
         fi
     done
+    for file in "${files[@]}"; do
+        if [ -f "$file" ]; then
+            DOCKER_ARGS+=(--volume /dev/null:"/workspace/${file}":ro)
+            EXCLUDED_FILES+="$file, "
+        fi
+    done
     MASKED_DIRS="${MASKED_DIRS%, }"
+    EXCLUDED_FILES="${EXCLUDED_FILES%, }"
     [ -n "$MASKED_DIRS" ] && echo "🔒 Masking with tmpfs: $MASKED_DIRS"
+    [ -n "$EXCLUDED_FILES" ] && echo "🔒 Excluding files: $EXCLUDED_FILES"
 fi
+
 
 # Environment variables
 DOCKER_ARGS+=(
