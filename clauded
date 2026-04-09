@@ -14,15 +14,47 @@ IMAGE_NAME="clauded:latest"
 CONTAINER_NAME="clauded-container"
 CLAUDE_VOLUME="clauded-volume"
 SANDBOX_MODE=false
+PROFILE=""
 
 FILTERED_ARGS=()
+expect_profile=false
 for arg in "$@"; do
-    if [ "$arg" = "--sandbox" ] || [ "$arg" = "-s" ]; then
-        SANDBOX_MODE=true
-    else
-        FILTERED_ARGS+=("$arg")
+    if [ "$expect_profile" = true ]; then
+        PROFILE="$arg"
+        expect_profile=false
+        continue
     fi
+    case "$arg" in
+        --sandbox|-s)
+            SANDBOX_MODE=true
+            ;;
+        --profile=*)
+            PROFILE="${arg#--profile=}"
+            ;;
+        --profile)
+            expect_profile=true
+            ;;
+        *)
+            FILTERED_ARGS+=("$arg")
+            ;;
+    esac
 done
+
+if [ "$expect_profile" = true ]; then
+    echo -e "${RED}Error: --profile requires a name${NC}" >&2
+    exit 1
+fi
+
+HOME_VOLUME="${CLAUDE_VOLUME}"
+if [ -n "$PROFILE" ]; then
+    if ! [[ "$PROFILE" =~ ^[a-zA-Z0-9][a-zA-Z0-9_.-]*$ ]]; then
+        echo -e "${RED}Error: Invalid profile name '${PROFILE}'${NC}" >&2
+        echo -e "${YELLOW}Profile must start with alphanumeric and contain only [a-zA-Z0-9_.-]${NC}" >&2
+        exit 1
+    fi
+    CONTAINER_NAME="clauded-container-${PROFILE}"
+    HOME_VOLUME="${CLAUDE_VOLUME}-${PROFILE}"
+fi
 
 if ! docker image inspect "${IMAGE_NAME}" > /dev/null 2>&1; then
     echo -e "${RED}Error: Docker image '${IMAGE_NAME}' not found${NC}"
@@ -86,12 +118,23 @@ if docker ps --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
     done
 fi
 
-if ! docker volume inspect "${CLAUDE_VOLUME}" > /dev/null 2>&1; then
-    echo -e "${YELLOW}Creating persistent volume for Claude Code config...${NC}"
-    docker volume create "${CLAUDE_VOLUME}"
+if ! docker volume inspect "${HOME_VOLUME}" > /dev/null 2>&1; then
+    echo -e "${YELLOW}Creating persistent volume '${HOME_VOLUME}'...${NC}"
+    docker volume create "${HOME_VOLUME}" >/dev/null
+    # Best-effort seed from default so existing OAuth credentials carry over.
+    if [ -n "$PROFILE" ] && docker volume inspect "${CLAUDE_VOLUME}" > /dev/null 2>&1; then
+        docker run --rm --entrypoint sh \
+            -v "${CLAUDE_VOLUME}:/clauded-from:ro" \
+            -v "${HOME_VOLUME}:/clauded-to" \
+            "${IMAGE_NAME}" \
+            -c 'cp -a /clauded-from/. /clauded-to/' >/dev/null || true
+    fi
 fi
 
 echo -e "${GREEN}🐳 Starting Claude Code...${NC}"
+if [ -n "$PROFILE" ]; then
+    echo -e "🏷️ Profile: ${CYAN}${PROFILE}${NC}"
+fi
 if [ "$SANDBOX_MODE" = true ]; then
     echo -e "⚙️ Mode: sandboxed (${CYAN}no host directory mounted${NC})"
 else
@@ -157,13 +200,13 @@ fi
 # Volumes
 if [ "$SANDBOX_MODE" = true ]; then
     DOCKER_ARGS+=(
-        -v "${CLAUDE_VOLUME}:/home/codespace:rw"
+        -v "${HOME_VOLUME}:/home/codespace:rw"
         -w /workspace
     )
 else
     DOCKER_ARGS+=(
         -v "${WORK_DIR}:/workspace:rw"
-        -v "${CLAUDE_VOLUME}:/home/codespace:rw"
+        -v "${HOME_VOLUME}:/home/codespace:rw"
         -w /workspace
     )
 fi

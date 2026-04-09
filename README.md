@@ -63,6 +63,22 @@ clauded --sandbox
 clauded -s
 ```
 
+### Named Profiles
+
+Run multiple isolated Claude Code instances side-by-side using `--profile`:
+
+```bash
+clauded --profile=work
+clauded --profile=chat
+```
+
+Each profile gets:
+
+- Its own container (`clauded-container-<name>`) — multiple profiles can run in parallel without triggering the instance-management prompt.
+- Its own persistent volume (`clauded-volume-<name>`) — settings, selected model, project history, and todos are independent. Changing the model in one profile does **not** affect any other profile.
+
+If the default `clauded-volume` already exists when a new profile is created, the profile volume is seeded from it, so any existing OAuth credentials carry over and you don't need to log in again. If the default volume doesn't exist yet, the profile starts empty and Claude Code will prompt for login on first run, just like a fresh install. After creation, each profile is fully independent — re-authenticating in one profile does not propagate to the others.
+
 ### Passing Arguments to Claude Code
 
 All arguments (except `--sandbox`/`-s`) are passed directly to the Claude Code CLI:
