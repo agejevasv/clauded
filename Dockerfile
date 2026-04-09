@@ -19,6 +19,8 @@ USER codespace
 RUN curl -fsSL https://claude.ai/install.sh | bash
 USER root
 
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /usr/local/bin/
+
 COPY --chmod=755 entrypoint.sh /usr/local/bin/entrypoint.sh
 
 WORKDIR /workspace
