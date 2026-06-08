@@ -14,14 +14,32 @@ IMAGE_NAME="clauded:latest"
 CONTAINER_NAME="clauded-container"
 CLAUDE_VOLUME="clauded-volume"
 SANDBOX_MODE=false
+SHELL_MODE=false
 PROFILE=""
+PORTS=()
+
+# Expand a bare port number (4242) into a docker publish spec (4242:4242);
+# pass anything more specific (e.g. 127.0.0.1:8080:4242) through unchanged.
+normalize_port() {
+    if [[ "$1" =~ ^[0-9]+$ ]]; then
+        echo "$1:$1"
+    else
+        echo "$1"
+    fi
+}
 
 FILTERED_ARGS=()
 expect_profile=false
+expect_port=false
 for arg in "$@"; do
     if [ "$expect_profile" = true ]; then
         PROFILE="$arg"
         expect_profile=false
+        continue
+    fi
+    if [ "$expect_port" = true ]; then
+        PORTS+=("$(normalize_port "$arg")")
+        expect_port=false
         continue
     fi
     case "$arg" in
@@ -34,6 +52,21 @@ for arg in "$@"; do
         --profile)
             expect_profile=true
             ;;
+        shell)
+            # First bare "shell" token is the subcommand; anything after is
+            # passed through to bash (e.g. `clauded shell -c "..."`).
+            if [ "$SHELL_MODE" = false ]; then
+                SHELL_MODE=true
+            else
+                FILTERED_ARGS+=("$arg")
+            fi
+            ;;
+        --port=*|--publish=*)
+            PORTS+=("$(normalize_port "${arg#*=}")")
+            ;;
+        --port|--publish)
+            expect_port=true
+            ;;
         *)
             FILTERED_ARGS+=("$arg")
             ;;
@@ -42,6 +75,11 @@ done
 
 if [ "$expect_profile" = true ]; then
     echo -e "${RED}Error: --profile requires a name${NC}" >&2
+    exit 1
+fi
+
+if [ "$expect_port" = true ]; then
+    echo -e "${RED}Error: --port requires a value (e.g. --port 4242)${NC}" >&2
     exit 1
 fi
 
@@ -54,6 +92,24 @@ if [ -n "$PROFILE" ]; then
     fi
     CONTAINER_NAME="clauded-container-${PROFILE}"
     HOME_VOLUME="${CLAUDE_VOLUME}-${PROFILE}"
+fi
+
+# `clauded shell` drops into a bash shell in the already-running container.
+if [ "$SHELL_MODE" = true ]; then
+    if ! docker ps --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
+        echo -e "${RED}Error: container '${CONTAINER_NAME}' is not running${NC}" >&2
+        echo -e "${YELLOW}Start it first with: clauded${PROFILE:+ --profile=${PROFILE}}${NC}" >&2
+        exit 1
+    fi
+    echo -e "${GREEN}🐚 Opening shell in '${CONTAINER_NAME}'...${NC}"
+    echo -e "${YELLOW}Note: only /workspace and /home/codespace persist; other changes are lost on restart.${NC}"
+    # Host's $TERM (e.g. alacritty) often has no terminfo in the container,
+    # which breaks readline line editing (backspace). xterm-256color is always
+    # present and universally compatible; COLORTERM still carries truecolor.
+    docker exec -it -u codespace -w /workspace \
+        -e "TERM=xterm-256color" -e "COLORTERM=${COLORTERM}" \
+        "${CONTAINER_NAME}" bash "${FILTERED_ARGS[@]}"
+    exit $?
 fi
 
 if ! docker image inspect "${IMAGE_NAME}" > /dev/null 2>&1; then
@@ -94,7 +150,10 @@ if docker ps --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
         case "$answer" in
             1 )
                 echo -e "${GREEN}Reusing existing instance...${NC}"
-                docker exec -it -u codespace "${CONTAINER_NAME}" claude --dangerously-skip-permissions "${FILTERED_ARGS[@]}"
+                [ ${#PORTS[@]} -gt 0 ] && echo -e "${YELLOW}Note: --port is ignored when attaching; choose option 2 to apply new port mappings.${NC}"
+                docker exec -it -u codespace \
+                    -e "TERM=xterm-256color" -e "COLORTERM=${COLORTERM}" \
+                    "${CONTAINER_NAME}" claude --dangerously-skip-permissions "${FILTERED_ARGS[@]}"
                 echo -e "${GREEN}Detaching, container is still running.${NC}"
                 exit 0
                 ;;
@@ -140,6 +199,9 @@ if [ "$SANDBOX_MODE" = true ]; then
 else
     echo -e "⚙️ Mode: ${YELLOW}mounted${NC} (${CYAN}${WORK_DIR}${NC})"
 fi
+if [ ${#PORTS[@]} -gt 0 ]; then
+    echo -e "🌐 Publishing: ${CYAN}${PORTS[*]}${NC}"
+fi
 
 files=(
     .env
@@ -160,6 +222,11 @@ DOCKER_ARGS=(
     --security-opt no-new-privileges:true
     --network bridge
 )
+
+# Publish requested ports to the host (repeatable via --port)
+for port in "${PORTS[@]}"; do
+    DOCKER_ARGS+=(-p "$port")
+done
 
 # Add tmpfs mounts for sensitive directories and exclude sensitive files (non-sandbox mode only)
 MASKED_DIRS=""

@@ -63,6 +63,49 @@ clauded --sandbox
 clauded -s
 ```
 
+### Opening a Shell
+
+Drop into a bash shell inside the **already-running** container:
+
+```bash
+clauded shell
+# target a specific profile's container:
+clauded --profile=work shell
+# run a one-off command instead of an interactive shell:
+clauded shell -c "uv tool install ruff"
+```
+
+The shell runs as the `codespace` user in `/workspace`. Note that only
+`/workspace` (your mounted directory) and `/home/codespace` (the persistent
+volume) survive a restart — because the container runs with `--rm`, anything
+installed elsewhere (e.g. `apt` packages, `/usr`, `/etc`) is lost when it stops.
+For permanent system-wide changes, edit the `Dockerfile` and rebuild with
+`./install.sh`.
+
+### Exposing Ports
+
+By default no ports are published — the container uses bridge networking with
+nothing forwarded. To reach a server running inside the container from the host,
+publish its port at start time with `--port` (alias: `--publish`):
+
+```bash
+# server in the container listens on 4242 -> reachable at localhost:4242
+clauded --port 4242
+
+# map to a different host port (host:container)
+clauded --port 8080:4242
+
+# bind to a specific host interface, or publish several ports
+clauded --port 127.0.0.1:4242:4242 --port 9229
+```
+
+A bare number (`--port 4242`) is expanded to `4242:4242`; anything more specific
+is passed straight to `docker run -p`. The flag is repeatable.
+
+> Ports must be published when the container starts. If an instance is already
+> running, attaching to it (option 1) cannot add mappings — restart it (option 2)
+> for new `--port` values to take effect.
+
 ### Named Profiles
 
 Run multiple isolated Claude Code instances side-by-side using `--profile`:
