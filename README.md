@@ -2,18 +2,6 @@
 
 A Docker-based wrapper for running [Claude Code](https://claude.com/product/claude-code) in an isolated, containerized environment.
 
-## Table of Contents
-
-- [Installation](#installation)
-- [Usage](#usage)
-- [How It Works](#how-it-works)
-- [Instance Management](#instance-management)
-- [Configuration](#configuration)
-- [Uninstallation](#uninstallation)
-- [Security Considerations](#security-considerations)
-- [Troubleshooting](#troubleshooting)
-- [License](#license)
-
 ## Installation
 
 ### Prerequisites
