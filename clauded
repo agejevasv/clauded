@@ -276,6 +276,27 @@ else
         -v "${HOME_VOLUME}:/home/codespace:rw"
         -w /workspace
     )
+
+    # Claude Code keeps per-project state (memory + session transcripts) under
+    # ~/.claude/projects/<cwd-slug>. Because the workdir is always mounted at
+    # /workspace, that slug is always "-workspace" — which means every host
+    # project would otherwise share one store inside the home volume. Bind the
+    # fixed path back to the project so memory and history follow the code.
+    #
+    # Two mounts, nested: the transcripts mount covers the whole project dir,
+    # and the memory mount lands on top of it so memory gets its own tidy,
+    # commit-friendly location. Docker mounts destinations shallowest-first, so
+    # the nesting resolves in the right order.
+    PROJECT_STATE_DIR="/home/codespace/.claude/projects/-workspace"
+    # ".../transcripts/memory" is pre-created so Docker doesn't materialise the
+    # (shadowed, always-empty) mount point as root inside the project.
+    mkdir -p "${WORK_DIR}/.claude/memory" "${WORK_DIR}/.claude/transcripts/memory"
+    DOCKER_ARGS+=(
+        -v "${WORK_DIR}/.claude/transcripts:${PROJECT_STATE_DIR}:rw"
+        -v "${WORK_DIR}/.claude/memory:${PROJECT_STATE_DIR}/memory:rw"
+    )
+    echo -e "🧠 Memory: ${CYAN}${WORK_DIR}/.claude/memory${NC}"
+    echo -e "💬 Transcripts: ${CYAN}${WORK_DIR}/.claude/transcripts${NC}"
 fi
 
 docker run "${DOCKER_ARGS[@]}" \

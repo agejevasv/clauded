@@ -106,7 +106,7 @@ clauded --profile=chat
 Each profile gets:
 
 - Its own container (`clauded-container-<name>`) — multiple profiles can run in parallel without triggering the instance-management prompt.
-- Its own persistent volume (`clauded-volume-<name>`) — settings, selected model, project history, and todos are independent. Changing the model in one profile does **not** affect any other profile.
+- Its own persistent volume (`clauded-volume-<name>`) — settings, selected model, and todos are independent. Changing the model in one profile does **not** affect any other profile. (Memory and session transcripts are the exception: they live in the project directory, so profiles working on the same project share them — see [Project Memory and Transcripts](#project-memory-and-transcripts).)
 
 If the default `clauded-volume` already exists when a new profile is created, the profile volume is seeded from it, so any existing OAuth credentials carry over and you don't need to log in again. If the default volume doesn't exist yet, the profile starts empty and Claude Code will prompt for login on first run, just like a fresh install. After creation, each profile is fully independent — re-authenticating in one profile does not propagate to the others.
 
@@ -157,6 +157,46 @@ To reset configuration, remove the volume:
 
 ```bash
 docker volume rm clauded-volume
+```
+
+### Project Memory and Transcripts
+
+Claude Code stores per-project state — its memory files and session transcripts —
+under `~/.claude/projects/<slug>`, where the slug is derived from the working
+directory. Since `clauded` always mounts your project at `/workspace`, that slug
+is always `-workspace`, so **every** host project would otherwise share a single
+store inside `clauded-volume`.
+
+To avoid that, non-sandbox runs bind two directories back into your project:
+
+| Host path | Contents |
+| --- | --- |
+| `.claude/memory/` | Memory files and the `MEMORY.md` index |
+| `.claude/transcripts/` | Session transcripts (`*.jsonl`) and per-session state |
+
+Consequences worth knowing:
+
+- Memory and history follow the code — clone the repo elsewhere and they come with it.
+- `--continue` / `--resume` now list only *this* project's sessions instead of
+  every project you've ever opened.
+- Memory files are plain Markdown, so they show up in `git status` and can be
+  reviewed in diffs or shared with the repo. Add `.claude/memory/` to
+  `.gitignore` if you'd rather keep them local.
+- Transcripts get large (hundreds of MB is normal). Ignore them:
+
+  ```
+  .claude/transcripts/
+  ```
+
+- Both are shared across profiles, since they belong to the project rather than
+  to the profile.
+- Sandbox mode (`--sandbox`) has no host directory, so it keeps using the volume.
+
+Existing state from before this change is still in the volume, just shadowed by
+the mounts. To retrieve it:
+
+```bash
+docker run --rm -v clauded-volume:/v alpine ls /v/.claude/projects/-workspace
 ```
 
 ### GitHub Token
