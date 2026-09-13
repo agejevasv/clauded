@@ -167,12 +167,17 @@ directory. Since `clauded` always mounts your project at `/workspace`, that slug
 is always `-workspace`, so **every** host project would otherwise share a single
 store inside `clauded-volume`.
 
-To avoid that, non-sandbox runs bind two directories back into your project:
+To avoid that, non-sandbox runs bind memory into your project and transcripts
+into your host home directory:
 
 | Host path | Contents |
 | --- | --- |
 | `.claude/memory/` | Memory files and the `MEMORY.md` index |
-| `.claude/transcripts/` | Session transcripts (`*.jsonl`) and per-session state |
+| `~/.config/claude-transcripts/<project-slug>/` | Session transcripts (`*.jsonl`) and per-session state |
+
+`<project-slug>` is your project's absolute path with `/` replaced by `-`
+(the same scheme Claude Code itself uses for `~/.claude/projects/<slug>`), so
+two differently-located projects with the same directory name never collide.
 
 Consequences worth knowing:
 
@@ -182,12 +187,8 @@ Consequences worth knowing:
 - Memory files are plain Markdown, so they show up in `git status` and can be
   reviewed in diffs or shared with the repo. Add `.claude/memory/` to
   `.gitignore` if you'd rather keep them local.
-- Transcripts get large (hundreds of MB is normal). Ignore them:
-
-  ```
-  .claude/transcripts/
-  ```
-
+- Transcripts get large (hundreds of MB is normal), which is why they live
+  outside the project entirely instead of needing a `.gitignore` entry.
 - Both are shared across profiles, since they belong to the project rather than
   to the profile.
 - Sandbox mode (`--sandbox`) has no host directory, so it keeps using the volume.

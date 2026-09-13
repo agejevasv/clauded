@@ -277,26 +277,22 @@ else
         -w /workspace
     )
 
-    # Claude Code keeps per-project state (memory + session transcripts) under
-    # ~/.claude/projects/<cwd-slug>. Because the workdir is always mounted at
-    # /workspace, that slug is always "-workspace" — which means every host
-    # project would otherwise share one store inside the home volume. Bind the
-    # fixed path back to the project so memory and history follow the code.
-    #
-    # Two mounts, nested: the transcripts mount covers the whole project dir,
-    # and the memory mount lands on top of it so memory gets its own tidy,
-    # commit-friendly location. Docker mounts destinations shallowest-first, so
-    # the nesting resolves in the right order.
+    # Workdir is always /workspace in-container, so Claude Code's own
+    # per-project slug is always "-workspace" -- bind real per-project paths
+    # over it instead. Transcripts go to the host home dir (large, not meant
+    # to be committed); memory stays in-project (small, commit-friendly).
+    # Nested mounts resolve shallowest-first, so memory lands on top correctly.
     PROJECT_STATE_DIR="/home/codespace/.claude/projects/-workspace"
-    # ".../transcripts/memory" is pre-created so Docker doesn't materialise the
-    # (shadowed, always-empty) mount point as root inside the project.
-    mkdir -p "${WORK_DIR}/.claude/memory" "${WORK_DIR}/.claude/transcripts/memory"
+    PROJECT_SLUG="$(echo "${WORK_DIR#/}" | tr '/' '-')"
+    TRANSCRIPTS_DIR="${HOME}/.config/claude-transcripts/${PROJECT_SLUG}"
+    # Pre-create memory subdir so Docker doesn't materialize it as root.
+    mkdir -p "${WORK_DIR}/.claude/memory" "${TRANSCRIPTS_DIR}/memory"
     DOCKER_ARGS+=(
-        -v "${WORK_DIR}/.claude/transcripts:${PROJECT_STATE_DIR}:rw"
+        -v "${TRANSCRIPTS_DIR}:${PROJECT_STATE_DIR}:rw"
         -v "${WORK_DIR}/.claude/memory:${PROJECT_STATE_DIR}/memory:rw"
     )
     echo -e "🧠 Memory: ${CYAN}${WORK_DIR}/.claude/memory${NC}"
-    echo -e "💬 Transcripts: ${CYAN}${WORK_DIR}/.claude/transcripts${NC}"
+    echo -e "💬 Transcripts: ${CYAN}${TRANSCRIPTS_DIR}${NC}"
 fi
 
 docker run "${DOCKER_ARGS[@]}" \
